@@ -17,8 +17,13 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 
+	diskfs "github.com/diskfs/go-diskfs"
 	"github.com/spf13/cobra"
+	"io/ioutil"
+	"log"
+	"os"
 )
 
 // listCmd represents the list command
@@ -32,7 +37,25 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("list called")
+		path, err := os.Getwd()
+
+		ListPartitions(path + "/rpi.img")
+
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
+		//files, err := ioutil.ReadDir(path)
+		//
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
+		//
+		//for _, f := range files {
+		//	if filepath.Ext(f.Name()) == ".img" {
+		//		fmt.Println(f.Name())
+		//	}
+		//}
+
 	},
 }
 
@@ -48,4 +71,35 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func ReadFilesystem(p string) {
+	disk, err := diskfs.Open(p)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	fs, err := disk.GetFilesystem(0) // assuming the whole disk, so partition = 0
+	if err != nil {
+		log.Panic(err)
+	}
+	files, err := fs.ReadDir("/") // this should list everything at the root
+	if err != nil {
+		log.Panic(err)
+	}
+	fmt.Println(files)
+}
+
+func ListPartitions(imgFile string) {
+	disk, err := diskfs.Open(imgFile)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	partitions, err := disk.GetPartitionTable()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	fmt.Println(partitions)
 }
