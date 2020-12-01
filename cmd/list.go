@@ -17,11 +17,11 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
+	//"path/filepath"
 
 	diskfs "github.com/diskfs/go-diskfs"
 	"github.com/spf13/cobra"
-	"io/ioutil"
+	//"io/ioutil"
 	"log"
 	"os"
 )
@@ -37,24 +37,30 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		path, err := os.Getwd()
+		path, err := os.Getwd() // gets current working directory
 
-		ListPartitions(path + "/rpi.img")
+		if err != nil {
+			log.Panic(err)
+		}
 
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
-		//files, err := ioutil.ReadDir(path)
-		//
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
-		//
-		//for _, f := range files {
-		//	if filepath.Ext(f.Name()) == ".img" {
-		//		fmt.Println(f.Name())
-		//	}
-		//}
+		disk, err := diskfs.Open(path + "/rpi.img")
+		if err != nil {
+			log.Panic(err)
+		}
+
+		fs, err := disk.GetFilesystem(1)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		files, err := fs.ReadDir("/")
+		if err != nil {
+			log.Panic(err)
+		}
+
+		for _, f := range files {
+			fmt.Println(f.Name())
+		}
 
 	},
 }
