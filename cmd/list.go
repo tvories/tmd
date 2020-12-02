@@ -17,13 +17,16 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"os"
+
 	//"path/filepath"
 
 	diskfs "github.com/diskfs/go-diskfs"
 	"github.com/spf13/cobra"
 	//"io/ioutil"
+	"github.com/gookit/color"
 	"log"
-	"os"
 )
 
 // listCmd represents the list command
@@ -37,31 +40,31 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		path, err := os.Getwd() // gets current working directory
+		if source != "" && dest != "" {
+			fmt.Println("source and dest are defined. moving on")
+			fmt.Println("source: " + source + "\ndest: " + dest)
 
-		if err != nil {
-			log.Panic(err)
+			// Now we copy
+			wd, err := os.Getwd()
+			if err != nil {
+				log.Panic(err)
+			}
+			//TODO: Figure out how to do this per OS type
+			var src = wd + "\\" + source
+			var dst = wd + "\\" + dest
+			fmt.Println("value of source path: " + src)
+			fmt.Println("value of dest path: " + dst)
+			err = CopyFile(src, dst)
+			if err != nil {
+				color.Error.Println("Copy failed!\n")
+				log.Panic(err)
+			} else {
+				color.Success.Println("Successfully copied!  Path: " + dst)
+			}
+
+		} else {
+			color.Error.Println("You need both --source and --dest defined")
 		}
-
-		disk, err := diskfs.Open(path + "/rpi.img")
-		if err != nil {
-			log.Panic(err)
-		}
-
-		fs, err := disk.GetFilesystem(1)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		files, err := fs.ReadDir("/")
-		if err != nil {
-			log.Panic(err)
-		}
-
-		for _, f := range files {
-			fmt.Println(f.Name())
-		}
-
 	},
 }
 
@@ -108,4 +111,134 @@ func ListPartitions(imgFile string) {
 	}
 
 	fmt.Println(partitions)
+}
+
+func ReadContents() {
+	path, err := os.Getwd() // gets current working directory
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	disk, err := diskfs.Open(path + "/rpi.img")
+	if err != nil {
+		log.Panic(err)
+	}
+
+	fs, err := disk.GetFilesystem(1)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	files, err := fs.ReadDir("/")
+	if err != nil {
+		log.Panic(err)
+	}
+
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+}
+
+func copy(src, dst string, BUFFERSIZE int64) error {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer source.Close()
+
+	_, err = os.Stat(dst)
+	if err == nil {
+		return fmt.Errorf("file %s already exists", dst)
+	}
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer destination.Close()
+
+	buf := make([]byte, BUFFERSIZE)
+	for {
+		n, err := source.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+
+		if _, err := destination.Write(buf[:n]); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+// TODO: Add existing file check
+// TODO: Add overwrite option
+func CopyFile(src, dst string) (err error) {
+	sfi, err := os.Stat(src)
+	if err != nil {
+		return
+	}
+	if !sfi.Mode().IsRegular() {
+		// cannot copy non-regular files (e.g., directories,
+		// symlinks, devices, etc.)
+		return fmt.Errorf("CopyFile: non-regular source file %s (%q)", sfi.Name(), sfi.Mode().String())
+	}
+	dfi, err := os.Stat(dst)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return
+		}
+	} else {
+		if !(dfi.Mode().IsRegular()) {
+			return fmt.Errorf("CopyFile: non-regular destination file %s (%q)", dfi.Name(), dfi.Mode().String())
+		}
+		if os.SameFile(sfi, dfi) {
+			return
+		}
+	}
+	if err = os.Link(src, dst); err == nil {
+		return
+	}
+	err = copyFileContents(src, dst)
+	return
+}
+
+// copyFileContents copies the contents of the file named src to the file named
+// by dst. The file will be created if it does not already exist. If the
+// destination file exists, all it's contents will be replaced by the contents
+// of the source file.
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
 }

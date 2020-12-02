@@ -25,6 +25,8 @@ import (
 )
 
 var cfgFile string
+var source string
+var dest string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -58,6 +60,9 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.newApp.yaml)")
+
+	rootCmd.PersistentFlags().StringVar(&source, "source", "", "source of img file")
+	rootCmd.PersistentFlags().StringVar(&dest, "dest", "", "destination for copy")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
