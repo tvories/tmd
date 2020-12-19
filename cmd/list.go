@@ -50,8 +50,8 @@ to quickly create a Cobra application.`,
 				log.Panic(err)
 			}
 			//TODO: Figure out how to do this per OS type
-			var src = wd + "\\" + source
-			var dst = wd + "\\" + dest
+			var src = wd + "/" + source
+			var dst = wd + "/" + dest
 			fmt.Println("value of source path: " + src)
 			fmt.Println("value of dest path: " + dst)
 			err = CopyFile(src, dst)
